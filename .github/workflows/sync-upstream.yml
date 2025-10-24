@@ -21,10 +21,10 @@ jobs:
         id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
         with:
-          target_sync_branch: main  # Your fork's branch to sync
+          target_sync_branch: master  # Your fork's branch to sync
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}  # Built-in secret for pushing to your fork
-          upstream_sync_branch: main  # Upstream's branch to pull from
-          upstream_sync_repo: original-owner/repo  # Upstream repo path (without https://github.com/)
+          upstream_sync_branch: master  # Upstream's branch to pull from
+          upstream_sync_repo: kevle1/Windows-telemetry-blocklist  # Upstream repo path (without https://github.com/)
           # If upstream is private, add: upstream_repo_access_token: ${{ secrets.UPSTREAM_REPO_SECRET }}
           # And create a secret UPSTREAM_REPO_SECRET in your fork's settings with a GitHub PAT (personal access token) for read access to upstream
 
