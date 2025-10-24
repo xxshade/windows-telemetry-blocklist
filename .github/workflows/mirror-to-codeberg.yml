@@ -26,9 +26,10 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-          # Write known hosts
+          # Write known hosts with current correct keys
           echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > ~/.ssh/known_hosts
-          echo "codeberg.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJGz532Vtm7Vk6AgcSIYMGJpZbdvIz1zHBNc+m5ZRJ7X" >> ~/.ssh/known_hosts
+          # Updated Codeberg.org key matching the SHA256:mIlxA9k46MmM6qdJOdMnAQpzGxF4WIVVL+fj+wZbw0g fingerprint
+          echo "codeberg.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJwZit/5Vv0HNyQBXtmYIMaC9HJzGKzYPicQGNpLX+Ir" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
           # Configure git
