@@ -1,8 +1,17 @@
 name: 'Upstream Sync'
 
+# Ensure the workflow has permission to push changes
+permissions:
+  contents: write
+
+# Prevent overlapping runs
+concurrency:
+  group: 'upstream-sync'
+  cancel-in-progress: true
+
 on:
   schedule:
-    - cron:  '0 */6 * * *'  # Runs at 07:00 every Monday and Thursday (adjust as needed)
+    - cron: '0 */6 * * *'  # Runs every 6 hours (at minute 0)
   workflow_dispatch:  # Allows manual triggering from the GitHub UI
 
 jobs:
@@ -14,16 +23,16 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@v3
         with:
-          ref: main  # Replace with your target branch if different
+          ref: master  # Replace with your target branch if different (make this match target_sync_branch)
           persist-credentials: false
 
       - name: Sync upstream changes
         id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
         with:
-          target_sync_branch: master  # Your fork's branch to sync
+          target_sync_branch: master  # Your fork's branch to sync (make this match the 'ref' above)
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}  # Built-in secret for pushing to your fork
-          upstream_sync_branch: master  # Upstream's branch to pull from
+          upstream_sync_branch: master  # Upstream's branch to pull from (upstream default is master)
           upstream_sync_repo: kevle1/Windows-telemetry-blocklist  # Upstream repo path (without https://github.com/)
           # If upstream is private, add: upstream_repo_access_token: ${{ secrets.UPSTREAM_REPO_SECRET }}
           # And create a secret UPSTREAM_REPO_SECRET in your fork's settings with a GitHub PAT (personal access token) for read access to upstream
