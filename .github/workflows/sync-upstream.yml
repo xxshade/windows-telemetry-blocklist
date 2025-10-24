@@ -1,0 +1,37 @@
+name: 'Upstream Sync'
+
+on:
+  schedule:
+    - cron:  '0 */6 * * *'  # Runs at 07:00 every Monday and Thursday (adjust as needed)
+  workflow_dispatch:  # Allows manual triggering from the GitHub UI
+
+jobs:
+  sync_latest_from_upstream:
+    runs-on: ubuntu-latest
+    name: Sync latest commits from upstream repo
+
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v3
+        with:
+          ref: main  # Replace with your target branch if different
+          persist-credentials: false
+
+      - name: Sync upstream changes
+        id: sync
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
+        with:
+          target_sync_branch: main  # Your fork's branch to sync
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}  # Built-in secret for pushing to your fork
+          upstream_sync_branch: main  # Upstream's branch to pull from
+          upstream_sync_repo: original-owner/repo  # Upstream repo path (without https://github.com/)
+          # If upstream is private, add: upstream_repo_access_token: ${{ secrets.UPSTREAM_REPO_SECRET }}
+          # And create a secret UPSTREAM_REPO_SECRET in your fork's settings with a GitHub PAT (personal access token) for read access to upstream
+
+      - name: New commits found
+        if: steps.sync.outputs.has_new_commits == 'true'
+        run: echo "New commits were found to sync."
+
+      - name: No new commits
+        if: steps.sync.outputs.has_new_commits == 'false'
+        run: echo "There were no new commits."
