@@ -1,0 +1,18 @@
+name: Mirror to Codeberg
+
+on: [push, delete, create]  # Triggers on pushes, branch deletions, or creations
+
+concurrency:
+  group: git-mirror  # Ensures only one mirror job runs at a time
+
+jobs:
+  git-mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: wearerequired/git-mirror-action@v1
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        with:
+          source-repo: "git@github.com:xxshade/windows-telemetry-blocklist.git"  # Your GitHub fork's SSH URL
+          destination-repo: "git@codeberg.org/xxshade/windows-telemetry-blocklist.git"  # Your Codeberg repo's SSH URL
