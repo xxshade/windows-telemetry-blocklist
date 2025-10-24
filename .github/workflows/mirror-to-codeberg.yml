@@ -1,31 +1,77 @@
 name: Mirror to Codeberg
 
-on: [push, delete, create]
+on: [push, create, delete]
 
 concurrency:
   group: git-mirror
+  cancel-in-progress: true
 
 jobs:
-  git-mirror:
+  mirror:
     runs-on: ubuntu-latest
+    env:
+      # SOURCE uses the GITHUB_TOKEN to avoid needing an SSH key for GitHub reads.
+      SOURCE_REPO: "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+      # Set DEST_REPO here or replace with a secret like ${{ secrets.DEST_REPO }}
+      DEST_REPO: "git@codeberg.org:xxshade/windows-telemetry-blocklist.git"
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
     steps:
-      - name: Validate SSH secrets
-        id: validate_secrets
+      - name: Mirror repository to Codeberg
         run: |
-          # Fail early if SSH_PRIVATE_KEY or SSH_KNOWN_HOSTS are missing
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+          set -euo pipefail
+
+          echo "Preparing SSH for destination (Codeberg)..."
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+
+          if [ -n "${SSH_PRIVATE_KEY:-}" ]; then
+            echo "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_rsa"
+            chmod 600 "${HOME}/.ssh/id_rsa"
+          else
             echo "ERROR: SSH_PRIVATE_KEY secret is not set."
             exit 1
           fi
-          if [ -z "${{ secrets.SSH_KNOWN_HOSTS }}" ]; then
-            echo "ERROR: SSH_KNOWN_HOSTS secret is not set. Please add known_hosts lines for github.com and codeberg.org (use ssh-keyscan)."
-            exit 1
+
+          # If a known_hosts secret is provided, use it. Otherwise fetch host keys at runtime.
+          if [ -n "${SSH_KNOWN_HOSTS:-}" ]; then
+            echo "${SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+            chmod 644 "${HOME}/.ssh/known_hosts"
+            echo "Using SSH_KNOWN_HOSTS from secret."
+          else
+            echo "SSH_KNOWN_HOSTS secret not provided; collecting host keys with ssh-keyscan (runner must be able to reach hosts)."
+            # Add Codeberg host keys (and GitHub just in case)
+            ssh-keyscan -t rsa,ecdsa,ed25519 codeberg.org >> "${HOME}/.ssh/known_hosts" 2>/dev/null || true
+            ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> "${HOME}/.ssh/known_hosts" 2>/dev/null || true
+            chmod 644 "${HOME}/.ssh/known_hosts"
           fi
-      - name: Mirror (git-mirror action)
-        uses: wearerequired/git-mirror-action@v1
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-        with:
-          source-repo: "git@github.com:xxshade/windows-telemetry-blocklist.git"
-          destination-repo: "git@codeberg.org/xxshade/windows-telemetry-blocklist.git"
+
+          # Ensure ssh-agent won't complain; provide basic config to use our key
+          # This forces StrictHostKeyChecking=yes (we populated known_hosts).
+          cat > "${HOME}/.ssh/config" <<'EOF'
+Host codeberg.org github.com
+  StrictHostKeyChecking yes
+  IdentityFile ~/.ssh/id_rsa
+  UserKnownHostsFile ~/.ssh/known_hosts
+  LogLevel ERROR
+EOF
+          chmod 600 "${HOME}/.ssh/config"
+
+          echo "Git version: $(git --version)"
+
+          TMP_DIR="$(mktemp -d)"
+          echo "Using temporary work dir: ${TMP_DIR}"
+          cd "${TMP_DIR}"
+
+          echo "Cloning source repository (mirror) from:"
+          echo "  ${SOURCE_REPO}"
+          git clone --mirror "${SOURCE_REPO}" repo.git
+          cd repo.git
+
+          echo "Setting destination push URL to: ${DEST_REPO}"
+          git remote set-url --push origin "${DEST_REPO}"
+
+          echo "Pushing --mirror to destination (this will mirror branches + tags + deletions)..."
+          git push --mirror origin
+
+          echo "Mirror completed successfully."
