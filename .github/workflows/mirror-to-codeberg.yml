@@ -1,18 +1,31 @@
 name: Mirror to Codeberg
 
-on: [push, delete, create]  # Triggers on pushes, branch deletions, or creations
+on: [push, delete, create]
 
 concurrency:
-  group: git-mirror  # Ensures only one mirror job runs at a time
+  group: git-mirror
 
 jobs:
   git-mirror:
     runs-on: ubuntu-latest
     steps:
-      - uses: wearerequired/git-mirror-action@v1
+      - name: Validate SSH secrets
+        id: validate_secrets
+        run: |
+          # Fail early if SSH_PRIVATE_KEY or SSH_KNOWN_HOSTS are missing
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "ERROR: SSH_PRIVATE_KEY secret is not set."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_KNOWN_HOSTS }}" ]; then
+            echo "ERROR: SSH_KNOWN_HOSTS secret is not set. Please add known_hosts lines for github.com and codeberg.org (use ssh-keyscan)."
+            exit 1
+          fi
+      - name: Mirror (git-mirror action)
+        uses: wearerequired/git-mirror-action@v1
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         with:
-          source-repo: "git@github.com:xxshade/windows-telemetry-blocklist.git"  # Your GitHub fork's SSH URL
-          destination-repo: "git@codeberg.org/xxshade/windows-telemetry-blocklist.git"  # Your Codeberg repo's SSH URL
+          source-repo: "git@github.com:xxshade/windows-telemetry-blocklist.git"
+          destination-repo: "git@codeberg.org/xxshade/windows-telemetry-blocklist.git"
