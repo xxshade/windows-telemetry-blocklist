@@ -5,7 +5,12 @@ on:
       - '**'
   delete:
   create:
+  schedule:
+   - cron: '0 */5 * * *'  # Runs every 5 hours (at minute 0)
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   mirror:
@@ -18,29 +23,17 @@ jobs:
 
       - name: Configure Git
         run: |
-          # Create SSH directory and set permissions
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-
-          # Write private key
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-
-          # Write known hosts with current correct keys
-          echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > ~/.ssh/known_hosts
-          # Updated Codeberg.org key matching the SHA256:mIlxA9k46MmM6qdJOdMnAQpzGxF4WIVVL+fj+wZbw0g fingerprint
-          echo "codeberg.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIVIC02vnjFyL+I4RHfvIGNtOgJMe769VTF1VR4EB3ZB" >> ~/.ssh/known_hosts
+          ssh-keyscan -t ed25519 github.com codeberg.org > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
-
-          # Configure git
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
       - name: Push to Codeberg
         run: |
-          # Add Codeberg as remote
-          git remote add codeberg git@codeberg.org:xxshade/windows-telemetry-blocklist.git
-
-          # Push all branches and tags
-          git push --force codeberg --all
-          git push --force codeberg --tags
+          git remote add codeberg ${{ vars.CODEBERG_REPO }}
+          git push --force codeberg --all || { echo "Failed to push branches to Codeberg"; exit 1; }
+          git push --force codeberg --tags || { echo "Failed to push tags to Codeberg"; exit 1; }
